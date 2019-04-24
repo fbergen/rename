@@ -29,6 +29,7 @@ brew:
   folder: Formula
   homepage:  https://github.com/fberge/rename
   description: Unix Rename command, written in Go
+  skip_upload: true
 checksum:
   name_template: 'checksums.txt'
 snapshot:
