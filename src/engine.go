@@ -49,11 +49,19 @@ func parse(expression string) (instruction, error) {
 	}
 	switch parts[0] {
 	case "s":
+		l := len(parts)
+		if l < 4 {
+			return nil, fmt.Errorf("Unterminated substitution command, required format 's/from/to/'")
+		}
 		var flags []rune
-		if len(parts) > 3 {
+		if l > 3 {
 			flags = []rune(parts[3])
 		}
-		subs, _ := newSubstitution(parts[1], parts[2], flags)
+		subs, err := newSubstitution(parts[1], parts[2], flags)
+		if err != nil {
+			return nil, err
+		}
+
 		return subs, nil
 	default:
 		return nil, fmt.Errorf("unrecognized command '%s'", parts[0])
@@ -71,10 +79,10 @@ func newSubstitution(pattern, replacement string, flags []rune) (instruction, er
 		case 'i':
 			caseInsensitive = true
 		default:
-			err = fmt.Errorf("Bad regexp flag <%v>", char)
+			err = fmt.Errorf("Unrecognized substitution flag '%v'", string(char))
 		}
 		if err != nil {
-			break
+			return nil, err
 		}
 	}
 
