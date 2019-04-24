@@ -23,13 +23,25 @@ type FromTo struct {
 }
 
 func ParseArgs() *Args {
-	verbosePtr := flag.BoolP("verbose", "v", false, "Verbose")
-	noActPtr := flag.BoolP("no-action", "n", false, "No-action")
-	interactivePtr := flag.BoolP("interactive", "i", false, "Interactive")
+	verbosePtr := flag.BoolP("verbose", "v", false, "Show which files where renamed, if any.")
+	noActPtr := flag.BoolP("no-action", "n", false, "Don't perform any changes. Show what files would have been renamed.")
+	helpPtr := flag.BoolP("help", "h", false, "Show help dialog")
+	interactivePtr := flag.BoolP("interactive", "i", false, "Interactive mode")
+
+	flag.Usage = func() {
+		fmt.Fprint(os.Stderr, "Usage: rename [options] files... expression\n\n")
+		fmt.Fprintln(os.Stderr, "Options:")
+		flag.PrintDefaults()
+	}
 
 	flag.Parse()
 
 	l := flag.NArg()
+	if l < 1 || *helpPtr {
+		flag.Usage()
+		os.Exit(2)
+	}
+
 	var files []string
 	if l < 2 {
 		scanner := bufio.NewScanner(os.Stdin)
