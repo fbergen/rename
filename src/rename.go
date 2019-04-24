@@ -2,8 +2,8 @@ package rename
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
+	flag "github.com/ogier/pflag"
 	"os"
 	"path"
 )
@@ -23,9 +23,9 @@ type FromTo struct {
 }
 
 func ParseArgs() *Args {
-	verbosePtr := flag.Bool("v", false, "Verbose")
-	noActPtr := flag.Bool("n", false, "No rename")
-	interactivePtr := flag.Bool("i", false, "Interactive")
+	verbosePtr := flag.BoolP("verbose", "v", false, "Verbose")
+	noActPtr := flag.BoolP("no-action", "n", false, "No-action")
+	interactivePtr := flag.BoolP("interactive", "i", false, "Interactive")
 
 	flag.Parse()
 
