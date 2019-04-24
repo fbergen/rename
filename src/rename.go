@@ -1,19 +1,20 @@
 package rename
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
-	"github.com/rwtodd/Go.Sed/sed"
 	"os"
 	"path"
-	"strings"
 )
 
 type Args struct {
-	Files   []string
-	Replace string
-	DryRun  bool
-	Verbose bool
+	Files       []string
+	Expression  string
+	NoAct       bool
+	Verbose     bool
+	Interactive bool
+	Force       bool
 }
 
 type FromTo struct {
@@ -23,23 +24,37 @@ type FromTo struct {
 
 func ParseArgs() *Args {
 	verbosePtr := flag.Bool("v", false, "Verbose")
-	dryPtr := flag.Bool("d", false, "Dry run")
+	noActPtr := flag.Bool("n", false, "No rename")
+	interactivePtr := flag.Bool("i", false, "Interactive")
 
 	flag.Parse()
 
 	l := flag.NArg()
-	files := flag.Args()[1 : l-1]
-	replace := flag.Args()[l-1]
+	var files []string
+	if l < 2 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			files = append(files, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			return nil
+		}
+	} else {
+		files = flag.Args()[0 : l-1]
+	}
+
+	expression := flag.Args()[l-1]
 	return &Args{
-		Files:   files,
-		Replace: replace,
-		DryRun:  *dryPtr,
-		Verbose: *verbosePtr,
+		Files:       files,
+		Expression:  expression,
+		NoAct:       *noActPtr,
+		Verbose:     *verbosePtr,
+		Interactive: *interactivePtr,
 	}
 }
 
 func GetReplacements(args *Args) ([]FromTo, error) {
-	engine, err := sed.New(strings.NewReader(args.Replace))
+	engine, err := NewEngine(args.Expression)
 	if err != nil {
 		return nil, err
 	}
@@ -47,12 +62,10 @@ func GetReplacements(args *Args) ([]FromTo, error) {
 	for _, file := range args.Files {
 		dir := path.Dir(file)
 		filename := path.Base(file)
-		output, err := engine.RunString(filename)
+		output, err := engine.Run(filename)
 		if err != nil {
 			return nil, err
 		}
-		// go-sed always returns trailing newlines for some reason.
-		output = strings.TrimSuffix(output, "\n")
 		replacements = append(replacements, FromTo{path.Join(dir, filename), path.Join(dir, output)})
 	}
 	return replacements, nil
@@ -64,10 +77,10 @@ func Run(args *Args) error {
 		return err
 	}
 	for _, fromto := range replacements {
-		if args.Verbose || args.DryRun {
+		if args.Verbose || args.NoAct {
 			fmt.Printf("%s\t-> %s\n", fromto.From, path.Base(fromto.To))
 		}
-		if !args.DryRun {
+		if !args.NoAct {
 			os.Rename(fromto.From, fromto.To)
 		}
 	}
