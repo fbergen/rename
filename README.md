@@ -20,6 +20,12 @@ Remove (last) extension: ``` rename path/to/files/* 's/\.[a-z]+$//' ```
 
 Swap double extensions : ``` rename path/to/files/* 's/([a-z]+)\.([a-z]+)$/$2.$1/' ```
 
+# Installation
+
+## Homebrew
+
+``` brew install fbergen/tap/rename ```
+
 
 # Options
 
