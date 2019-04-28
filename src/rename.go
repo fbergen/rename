@@ -114,14 +114,17 @@ func Run(args *Args) error {
 			PrintRename(engine, fromto)
 		}
 	}
-	prompt := promptui.Prompt{
-		Label:     "Continue?",
-		IsConfirm: true,
-	}
 
-	_, err = prompt.Run()
-	if err != nil {
-		return nil
+	if args.Interactive {
+		prompt := promptui.Prompt{
+			Label:     "Continue?",
+			IsConfirm: true,
+		}
+
+		_, err = prompt.Run()
+		if err != nil {
+			return nil
+		}
 	}
 
 	for _, fromto := range replacements {
