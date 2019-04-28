@@ -65,11 +65,7 @@ func ParseArgs() *Args {
 	}
 }
 
-func GetReplacements(args *Args) ([]FromTo, error) {
-	engine, err := NewEngine(args.Expression)
-	if err != nil {
-		return nil, err
-	}
+func GetReplacements(engine *Engine, args *Args) ([]FromTo, error) {
 	var replacements []FromTo
 	for _, file := range args.Files {
 		dir := path.Dir(file)
@@ -83,14 +79,24 @@ func GetReplacements(args *Args) ([]FromTo, error) {
 	return replacements, nil
 }
 
+func PrintRename(engine *Engine, fromto FromTo) {
+	// color match.
+	from, to, _ := engine.Highlight(fromto.From)
+	fmt.Printf("%s\t-> %s\n", from, path.Base(to))
+}
+
 func Run(args *Args) error {
-	replacements, err := GetReplacements(args)
+	engine, err := NewEngine(args.Expression)
+	if err != nil {
+		return err
+	}
+	replacements, err := GetReplacements(engine, args)
 	if err != nil {
 		return err
 	}
 	for _, fromto := range replacements {
 		if args.Verbose || args.NoAct {
-			fmt.Printf("%s\t-> %s\n", fromto.From, path.Base(fromto.To))
+			PrintRename(engine, fromto)
 		}
 		if !args.NoAct {
 			os.Rename(fromto.From, fromto.To)

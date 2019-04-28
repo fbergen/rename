@@ -11,6 +11,4 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	// os.Rename()
 }

@@ -1,14 +1,17 @@
 package rename
 
 import (
-	"errors"
 	"fmt"
+	"github.com/fatih/color"
 	"regexp"
 	"strings"
 )
 
 // Pre-compiled instructions to run
-type instruction func(src string) (string, error)
+type instruction interface {
+	Run(src string) (string, error)
+	Highlight(src string) (string, string, error)
+}
 
 // instruction, for now chaining expressions is not supported
 type Engine struct {
@@ -21,7 +24,29 @@ type substitution struct {
 	global  bool
 }
 
-func (s *substitution) run(src string) (string, error) {
+func (s *substitution) Highlight(src string) (string, string, error) {
+	first := true
+	srcHighlight := s.pattern.ReplaceAllStringFunc(src, func(match string) string {
+		if !first && !s.global {
+			return match
+		}
+		first = false
+		return s.pattern.ReplaceAllString(match, color.RedString("${0}"))
+	})
+
+	first = true
+	destHighLight := s.pattern.ReplaceAllStringFunc(src, func(match string) string {
+		if !first && !s.global {
+			return match
+		}
+		first = false
+		return s.pattern.ReplaceAllString(match, color.GreenString(s.repl))
+	})
+
+	return srcHighlight, destHighLight, nil
+}
+
+func (s *substitution) Run(src string) (string, error) {
 	first := true
 	return s.pattern.ReplaceAllStringFunc(src, func(match string) string {
 		if !first && !s.global {
@@ -38,14 +63,17 @@ func NewEngine(expression string) (*Engine, error) {
 }
 
 func (e *Engine) Run(src string) (string, error) {
-	return e.ins(src)
+	return e.ins.Run(src)
+}
+func (e *Engine) Highlight(src string) (string, string, error) {
+	return e.ins.Highlight(src)
 }
 
 func parse(expression string) (instruction, error) {
 	//TODO(fbergen): Figure out the separator character.
 	parts := strings.Split(expression, "/")
 	if len(parts) < 3 {
-		return nil, errors.New("err")
+		return nil, fmt.Errorf("Invalid expression '%s'", expression)
 	}
 	switch parts[0] {
 	case "s":
@@ -94,5 +122,5 @@ func newSubstitution(pattern, replacement string, flags []rune) (instruction, er
 		return nil, err
 	}
 
-	return subs.run, err
+	return subs, err
 }
