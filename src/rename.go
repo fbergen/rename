@@ -3,6 +3,7 @@ package rename
 import (
 	"bufio"
 	"fmt"
+	"github.com/manifoldco/promptui"
 	flag "github.com/ogier/pflag"
 	"io"
 	"os"
@@ -108,10 +109,22 @@ func Run(args *Args) error {
 		return err
 	}
 
-	for _, fromto := range replacements {
-		if args.Verbose || args.NoAct {
+	if args.Interactive || args.Verbose || args.NoAct {
+		for _, fromto := range replacements {
 			PrintRename(engine, fromto)
 		}
+	}
+	prompt := promptui.Prompt{
+		Label:     "Continue?",
+		IsConfirm: true,
+	}
+
+	_, err = prompt.Run()
+	if err != nil {
+		return nil
+	}
+
+	for _, fromto := range replacements {
 		if !args.NoAct {
 			act := true
 			if _, err := os.Stat(fromto.To); err == nil {
