@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	flag "github.com/ogier/pflag"
+	"io"
 	"os"
 	"path"
 )
@@ -15,6 +16,7 @@ type Args struct {
 	Verbose     bool
 	Interactive bool
 	Force       bool
+	Copy        bool
 }
 
 type FromTo struct {
@@ -25,8 +27,10 @@ type FromTo struct {
 func ParseArgs() *Args {
 	verbosePtr := flag.BoolP("verbose", "v", false, "Show which files where renamed, if any.")
 	noActPtr := flag.BoolP("no-action", "n", false, "Don't perform any changes. Show what files would have been renamed.")
-	helpPtr := flag.BoolP("help", "h", false, "Show help dialog")
-	interactivePtr := flag.BoolP("interactive", "i", false, "Interactive mode")
+	forcePtr := flag.BoolP("force", "f", false, "Overwrite existing files.")
+	copyPtr := flag.BoolP("copy", "c", false, "Copy instead of move.")
+	helpPtr := flag.BoolP("help", "h", false, "Show help dialog.")
+	interactivePtr := flag.BoolP("interactive", "i", false, "Ask for confirmation, before renaming")
 
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, "Usage: rename [options] files... expression\n\n")
@@ -61,20 +65,29 @@ func ParseArgs() *Args {
 		Expression:  expression,
 		NoAct:       *noActPtr,
 		Verbose:     *verbosePtr,
+		Copy:        *copyPtr,
+		Force:       *forcePtr,
 		Interactive: *interactivePtr,
 	}
 }
 
 func GetReplacements(engine *Engine, args *Args) ([]FromTo, error) {
+	destinations := make(map[string]bool)
 	var replacements []FromTo
 	for _, file := range args.Files {
 		dir := path.Dir(file)
 		filename := path.Base(file)
-		output, err := engine.Run(filename)
+		dest, err := engine.Run(filename)
 		if err != nil {
 			return nil, err
 		}
-		replacements = append(replacements, FromTo{path.Join(dir, filename), path.Join(dir, output)})
+		dest = path.Join(dir, dest)
+		if destinations[dest] {
+			return nil, fmt.Errorf("Conflicting rename pattern, multiple files will be renamed to the same destination  '%s'", dest)
+		}
+		destinations[dest] = true
+
+		replacements = append(replacements, FromTo{path.Join(dir, filename), dest})
 	}
 	return replacements, nil
 }
@@ -94,14 +107,51 @@ func Run(args *Args) error {
 	if err != nil {
 		return err
 	}
+
 	for _, fromto := range replacements {
 		if args.Verbose || args.NoAct {
 			PrintRename(engine, fromto)
 		}
 		if !args.NoAct {
-			os.Rename(fromto.From, fromto.To)
+			act := true
+			if _, err := os.Stat(fromto.To); err == nil {
+				// File exists
+				if !args.Force {
+					fmt.Printf("Not overwriting file: '%s'\n", fromto.To)
+					act = false
+				}
+			}
+			if act {
+				if args.Copy {
+					err := copy(fromto.From, fromto.To)
+					if err != nil {
+						fmt.Printf("Failed to copy file '%s'\n", err)
+					}
+				} else {
+					os.Rename(fromto.From, fromto.To)
+					if err != nil {
+						fmt.Printf("Failed to rename file '%s'\n", err)
+					}
+				}
+			}
 		}
 	}
 
 	return nil
+}
+
+func copy(source, destination string) error {
+	src, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+
+	dest, err := os.Create(destination)
+	if err != nil {
+		return err
+	}
+	defer dest.Close()
+	_, err = io.Copy(dest, src)
+	return err
 }
